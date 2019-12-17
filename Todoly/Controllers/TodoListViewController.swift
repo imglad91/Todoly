@@ -7,20 +7,36 @@
 //
 
 import UIKit
+import CoreData
 
 class TodoListViewController: UITableViewController {
+    @IBOutlet weak var searchBar: UISearchBar!
+    
+    var selectedCategory : Category? {
+        didSet {
+            loadItems()
+        }
+    }
+    
+    let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
+        
 
     var itemArray = [Items]()
 // Singleton    let defaults = UserDefaults.standard
-    let dataFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("Items.plist")
-    
+   
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        searchBar.delegate = self
        
-        print(dataFilePath!)
+        print(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask))
+        
+        tableView.separatorStyle = .none
         
         
-        loadItems()
+//        loadItems()
+        
+      
             
         
 //
@@ -70,14 +86,20 @@ class TodoListViewController: UITableViewController {
        // print(itemArray[indexPath.row])
         
    // This line is = to if statement bellow
-   //     itemArray[indexPath.row].done = !itemArray[indexPath.row].done
+       
+        itemArray[indexPath.row].done = !itemArray[indexPath.row].done
         
-        if itemArray[indexPath.row].done == false {
-            itemArray[indexPath.row].done = true
-        } else {
-            itemArray[indexPath.row].done = false 
-        }
-         
+   // Delete data using core data
+//           ORDER MATTERS for this 2 lines
+//        context.delete(itemArray[indexPath.row])
+//        itemArray.remove(at: indexPath.row)
+//
+//        if itemArray[indexPath.row].done == false {
+//            itemArray[indexPath.row].done = true
+//        } else {
+//            itemArray[indexPath.row].done = false
+//        }
+//
         saveItems()
         
 //
@@ -102,8 +124,10 @@ class TodoListViewController: UITableViewController {
            print("Success1")
             
             
-            let newItem = Items()
+            let newItem = Items(context: self.context)
             newItem.title = textField.text!
+            newItem.done = false
+            newItem.parentCategory = self.selectedCategory
             self.itemArray.append(newItem)
             
             self.saveItems()
@@ -123,28 +147,66 @@ class TodoListViewController: UITableViewController {
     }
     
     func saveItems() {
-        let encoder = PropertyListEncoder()
                     do {
-                        let data = try encoder.encode(itemArray)
-                        try data.write(to: dataFilePath!)
+                        try context.save()
                     } catch {
-                        print("Error encoding item array, \(error)")
+                        print("Error saving context, \(error)")
                     }
-                    
-         // Works only with user defaults singleton
-        //          self.defaults.set(self.itemArray, forKey: "ToDoListArray")
-                    print(self.itemArray)
                     self.tableView.reloadData()
-        
+         
     }
     
-    func loadItems() {
-        if let data = try? Data(contentsOf: dataFilePath!) {
-            let decoder = PropertyListDecoder()
-            do {
-            itemArray = try decoder.decode([Items].self, from: data)
-            } catch {
-                print("Error decoding the itemArray, \(error)")
+    func loadItems(with request:NSFetchRequest<Items> = Items.fetchRequest(), predicate : NSPredicate? = nil) {
+   //     let request : NSFetchRequest<Items> = Items.fetchRequest()
+        
+        let categoryPredicate = NSPredicate(format: "parentCategory.name MATCHES %@", selectedCategory!.name!)
+        
+        if let additionalPredicate = predicate {
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [categoryPredicate, additionalPredicate])
+        }   else {
+            request.predicate = categoryPredicate
+        }
+        
+        
+        
+//        let compoundPredicate = NSCompoundPredicate(andPredicateWithSubpredicates: [categoryPredicate, predicate])
+//
+//        request.predicate = compoundPredicate
+        
+        do {
+         itemArray = try context.fetch(request)
+        } catch {
+            print("Error fetheching data from context, \(error)")
+        }
+        tableView.reloadData()
+    }
+    
+}
+
+//MARK - Search Bar Methods
+
+extension TodoListViewController : UISearchBarDelegate {
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        
+        let request : NSFetchRequest<Items> = Items.fetchRequest()
+       
+        let predicate = NSPredicate(format: "title CONTAINS[cd] %@", searchBar.text!)
+        // [cd] = case and diacritic insensitive
+        request.predicate = predicate
+        let sortDescriptor = NSSortDescriptor(key: "title", ascending: true)
+        request.sortDescriptors = [sortDescriptor]
+// Or the 2 lines above can be written as this
+//        request.sortDescriptors = [NSSortDescriptor(key: "title", ascending: true)]
+        
+       loadItems(with: request, predicate: predicate)
+        
+       }
+    
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        if searchBar.text?.count == 0 {
+            loadItems()
+            DispatchQueue.main.async {
+                searchBar.resignFirstResponder()
             }
             
         }
