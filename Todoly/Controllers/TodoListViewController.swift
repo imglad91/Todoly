@@ -7,34 +7,37 @@
 //
 
 import UIKit
-import CoreData
+import RealmSwift
+
 
 class TodoListViewController: UITableViewController {
     @IBOutlet weak var searchBar: UISearchBar!
     
+    let realm = try! Realm()
     var selectedCategory : Category? {
         didSet {
-            loadItems()
+           loadItems()
         }
     }
     
-    let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
+ //   let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
         
 
-    var itemArray = [Items]()
+    var todoItems : Results<Items>?
 // Singleton    let defaults = UserDefaults.standard
    
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        searchBar.delegate = self
+        searchBar.delegate = self as UISearchBarDelegate
        
-        print(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask))
+  //      print(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask))
         
         tableView.separatorStyle = .none
         
+ //       todoItems = realm.objects(Items.self)
         
-//        loadItems()
+        loadItems()
         
       
             
@@ -57,37 +60,54 @@ class TodoListViewController: UITableViewController {
        // let cell = UITableViewCell(style: .default, reuseIdentifier: "ToDoItemCell")
         let cell = tableView.dequeueReusableCell(withIdentifier: "ToDoItemCell", for: indexPath)
         
-        let item  = itemArray[indexPath.row]
-        
-        cell.textLabel?.text = item.title
-        
-        // Ternary operator
-    //  Can replace the below if statement
-    //    cell.accessoryType = item.done ? .checkmark : .none
-        
-        
-        if item.done == true {
-            cell.accessoryType = .checkmark
+        if let item  = todoItems?[indexPath.row] {
+            cell.textLabel?.text = item.title
+                   
+                   // Ternary operator
+               //  Can replace the below if statement
+               //    cell.accessoryType = item.done ? .checkmark : .none
+                   
+                   
+                   if item.done == true {
+                       cell.accessoryType = .checkmark
+                   } else {
+                       cell.accessoryType = .none
+                   }
         } else {
-            cell.accessoryType = .none
+            cell.textLabel?.text = "No items added"
         }
         
         return cell
     }
 
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return itemArray.count
+        return todoItems?.count ?? 1
     }
     
     
     //MARK - TableView Delegate Methods
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        
+        if let item = todoItems?[indexPath.row] {
+            do {
+                try realm.write {
+                    item.done = !item.done
+                    // realm.delete(item)  to delete data from realm
+                }
+            } catch {
+                print("Error saving done status, \(error)")
+            }
+        }
+        
+        tableView.reloadData()
+        
+        
        // print(itemArray[indexPath.row])
         
    // This line is = to if statement bellow
        
-        itemArray[indexPath.row].done = !itemArray[indexPath.row].done
+  //      todoItems?[indexPath.row].done = !(todoItems[indexPath.row].done)
         
    // Delete data using core data
 //           ORDER MATTERS for this 2 lines
@@ -100,7 +120,7 @@ class TodoListViewController: UITableViewController {
 //            itemArray[indexPath.row].done = false
 //        }
 //
-        saveItems()
+ //       saveItems()
         
 //
 //        if tableView.cellForRow(at: indexPath)?.accessoryType == .checkmark {
@@ -123,16 +143,32 @@ class TodoListViewController: UITableViewController {
             // what will happen when user clicks add item on alert
            print("Success1")
             
+            if let currentCategory = self.selectedCategory // we set selected category to have the name "currentCategory" if its not nill
+            {
+                do {
+                  try self.realm.write {
+                        let newItem = Items()
+                        newItem.title = textField.text!
+                        newItem.dateCreated = Date()
+                        currentCategory.items.append(newItem)
+                    }
+                } catch {
+                        print("Error saving new item, \(error)")
+                    }
+                }
             
-            let newItem = Items(context: self.context)
-            newItem.title = textField.text!
-            newItem.done = false
-            newItem.parentCategory = self.selectedCategory
-            self.itemArray.append(newItem)
+            self.tableView.reloadData()
+             
+            }
+//            let newItem = Items(context: self.context)
+//            newItem.title = textField.text!
+//            newItem.done = false
+//            newItem.parentCategory = self.selectedCategory
+//            self.itemArray.append(newItem)
             
-            self.saveItems()
+ //           self.saveItems()
             
-        }
+        
         let action2 = UIAlertAction(title: "Cancel", style: .default) { (action2) in
             
         }
@@ -146,41 +182,51 @@ class TodoListViewController: UITableViewController {
          present(alert, animated: true, completion: nil)
     }
     
-    func saveItems() {
-                    do {
-                        try context.save()
-                    } catch {
-                        print("Error saving context, \(error)")
-                    }
-                    self.tableView.reloadData()
-         
-    }
-    
-    func loadItems(with request:NSFetchRequest<Items> = Items.fetchRequest(), predicate : NSPredicate? = nil) {
-   //     let request : NSFetchRequest<Items> = Items.fetchRequest()
-        
-        let categoryPredicate = NSPredicate(format: "parentCategory.name MATCHES %@", selectedCategory!.name!)
-        
-        if let additionalPredicate = predicate {
-            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [categoryPredicate, additionalPredicate])
-        }   else {
-            request.predicate = categoryPredicate
-        }
-        
-        
-        
-//        let compoundPredicate = NSCompoundPredicate(andPredicateWithSubpredicates: [categoryPredicate, predicate])
+//    func saveItems() {
+//                    do {
+//                        try context.save()
+//                    } catch {
+//                        print("Error saving context, \(error)")
+//                    }
+//                    self.tableView.reloadData()
 //
-//        request.predicate = compoundPredicate
-        
-        do {
-         itemArray = try context.fetch(request)
-        } catch {
-            print("Error fetheching data from context, \(error)")
-        }
+//    }
+    
+
+    func loadItems() {
+
+        todoItems = selectedCategory?.items.sorted(byKeyPath: "title", ascending: true)
         tableView.reloadData()
     }
     
+    
+    
+    
+//    func loadItems(with request:NSFetchRequest<Items> = Items.fetchRequest(), predicate : NSPredicate? = nil) {
+//   //     let request : NSFetchRequest<Items> = Items.fetchRequest()
+//
+//        let categoryPredicate = NSPredicate(format: "parentCategory.name MATCHES %@", selectedCategory!.name!)
+//
+//        if let additionalPredicate = predicate {
+//            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [categoryPredicate, additionalPredicate])
+//        }   else {
+//            request.predicate = categoryPredicate
+//        }
+//
+//
+//
+////        let compoundPredicate = NSCompoundPredicate(andPredicateWithSubpredicates: [categoryPredicate, predicate])
+////
+////        request.predicate = compoundPredicate
+//
+//        do {
+//         itemArray = try context.fetch(request)
+//        } catch {
+//            print("Error fetheching data from context, \(error)")
+//        }
+//        tableView.reloadData()
+//    }
+//
 }
 
 //MARK - Search Bar Methods
@@ -188,29 +234,32 @@ class TodoListViewController: UITableViewController {
 extension TodoListViewController : UISearchBarDelegate {
     func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
         
-        let request : NSFetchRequest<Items> = Items.fetchRequest()
+        todoItems = todoItems?.filter("title CONTAINS[cd] %@", searchBar.text!).sorted(byKeyPath: "dateCreated", ascending: true)
+        tableView.reloadData()
+    }
+//        let request : NSFetchRequest<Items> = Items.fetchRequest()
+//
+//        let predicate = NSPredicate(format: "title CONTAINS[cd] %@", searchBar.text!)
+//        // [cd] = case and diacritic insensitive
+//        request.predicate = predicate
+//        let sortDescriptor = NSSortDescriptor(key: "title", ascending: true)
+//        request.sortDescriptors = [sortDescriptor]
+//// Or the 2 lines above can be written as this
+////        request.sortDescriptors = [NSSortDescriptor(key: "title", ascending: true)]
+//
+//       loadItems(with: request, predicate: predicate)
+//
        
-        let predicate = NSPredicate(format: "title CONTAINS[cd] %@", searchBar.text!)
-        // [cd] = case and diacritic insensitive
-        request.predicate = predicate
-        let sortDescriptor = NSSortDescriptor(key: "title", ascending: true)
-        request.sortDescriptors = [sortDescriptor]
-// Or the 2 lines above can be written as this
-//        request.sortDescriptors = [NSSortDescriptor(key: "title", ascending: true)]
-        
-       loadItems(with: request, predicate: predicate)
-        
-       }
-    
+//
     func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
         if searchBar.text?.count == 0 {
             loadItems()
             DispatchQueue.main.async {
                 searchBar.resignFirstResponder()
             }
-            
+
         }
     }
-    
+//
 }
 
