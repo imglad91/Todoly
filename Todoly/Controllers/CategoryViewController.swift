@@ -8,28 +8,37 @@
 
 import UIKit
 import RealmSwift
+import ChameleonFramework
 
-class CategoryViewController: UITableViewController {
+class CategoryViewController:  SwipeTableViewController {
     
     let realm = try! Realm()
     
     var categoryArray : Results<Category>?
      
     
+    
     override func viewDidLoad() {
                  super.viewDidLoad()
                 
                  loadData()
                  tableView.separatorStyle = .none
+                 
                 
     }
     
     
     
-       //MARK - TableView Datasource methods
+       //MARK: - TableView Datasource methods
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "CategoryCell", for: indexPath)
+        
+        let cell = super.tableView(tableView, cellForRowAt: indexPath)
+        
         cell.textLabel?.text = categoryArray?[indexPath.row].name ?? "No categories added"
+       
+        
+        cell.backgroundColor = UIColor(hexString: categoryArray?[indexPath.row].color)
+       
         
         return cell
     }
@@ -42,7 +51,7 @@ class CategoryViewController: UITableViewController {
     
    
          
-         //MARK - TableView Delegate methods ** leave for later
+         //MARK: - TableView Delegate methods ** leave for later
          // What should happen when we click on one of the cells in the category view
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
@@ -61,8 +70,8 @@ class CategoryViewController: UITableViewController {
     
          
        
-         //MARK - Data manipulation methods
-    func save(category : Category) {
+         //MARK: - Data manipulation methods
+func save(category : Category) {
         do {
             try realm.write {
                 realm.add(category)
@@ -87,11 +96,27 @@ class CategoryViewController: UITableViewController {
         
     }
     
+    //MARK: - Delete data from swipe
+    
+    override func updateModel(at indexPath: IndexPath) {
+        if let categoryForDeletion = self.categoryArray?[indexPath.row] {
+            do {
+                try self.realm.write {
+                    self.realm.delete(categoryForDeletion.items)
+                    self.realm.delete(categoryForDeletion)
+                }
+            } catch {
+                print("Error deleting category, \(error)")
+            }
+        }
+    }
+    
+   
     
     
     
     
-         //MARK - Set up addbutton
+         //MARK: - Set up addbutton
        @IBAction func addButtonPressed(_ sender: UIBarButtonItem) {
         
        var textField = UITextField()
@@ -100,6 +125,10 @@ class CategoryViewController: UITableViewController {
         let action1 = UIAlertAction(title: "Add", style: .default) { (action1) in
             let newItem = Category()
             newItem.name = textField.text!
+            
+            newItem.color = UIColor.randomFlat().hexValue()
+           
+            
 //            self.categoryArray.append(newItem)
             self.save(category : newItem)
         }
@@ -123,4 +152,10 @@ class CategoryViewController: UITableViewController {
        
    }
 }
+
+
+
+    
+    
+
 

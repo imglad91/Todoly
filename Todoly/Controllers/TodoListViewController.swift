@@ -8,9 +8,14 @@
 
 import UIKit
 import RealmSwift
+import SwipeCellKit
+import ChameleonFramework
 
 
-class TodoListViewController: UITableViewController {
+
+class TodoListViewController : SwipeTableViewController {
+   
+    
     @IBOutlet weak var searchBar: UISearchBar!
     
     let realm = try! Realm()
@@ -58,10 +63,19 @@ class TodoListViewController: UITableViewController {
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
        
        // let cell = UITableViewCell(style: .default, reuseIdentifier: "ToDoItemCell")
-        let cell = tableView.dequeueReusableCell(withIdentifier: "ToDoItemCell", for: indexPath)
+        let cell = super.tableView(tableView, cellForRowAt: indexPath)
         
         if let item  = todoItems?[indexPath.row] {
             cell.textLabel?.text = item.title
+            
+            if let colour = UIColor(hexString:selectedCategory?.color).darken(byPercentage: CGFloat(indexPath.row)/2 / CGFloat(todoItems!.count)) {
+                 cell.backgroundColor = colour
+                cell.textLabel?.textColor = ContrastColorOf(backgroundColor: colour, returnFlat: true)
+            }
+           
+            
+            
+            
                    
                    // Ternary operator
                //  Can replace the below if statement
@@ -132,6 +146,8 @@ class TodoListViewController: UITableViewController {
         
     }
     
+   
+    
     //MARK - Add New Items
     
     @IBAction func AddButtonPressed(_ sender: UIBarButtonItem) {
@@ -143,7 +159,7 @@ class TodoListViewController: UITableViewController {
             // what will happen when user clicks add item on alert
            print("Success1")
             
-            if let currentCategory = self.selectedCategory // we set selected category to have the name "currentCategory" if its not nill
+            if let currentCategory = self.selectedCategory // we set selected category to have the name "currentCategory" if its not nill 
             {
                 do {
                   try self.realm.write {
@@ -226,6 +242,19 @@ class TodoListViewController: UITableViewController {
 //        }
 //        tableView.reloadData()
 //    }
+    override func updateModel(at indexPath: IndexPath) {
+        if let itemForDeletion = self.selectedCategory?.items[indexPath.row] {
+        do {
+            try self.realm.write {
+                self.realm.delete(itemForDeletion)
+            }
+        } catch {
+            print("Error deleting category, \(error)")
+            
+            }
+            
+        }
+    }
 //
 }
 
