@@ -38,10 +38,11 @@ class CategoryViewController:  SwipeTableViewController {
        
         
         cell.backgroundColor = UIColor(hexString: categoryArray?[indexPath.row].color)
-       
+        cell.textLabel?.textColor = ContrastColorOf(backgroundColor: cell.backgroundColor!, returnFlat: true)
         
         return cell
     }
+    
     
     
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {

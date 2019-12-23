@@ -40,11 +40,14 @@ class TodoListViewController : SwipeTableViewController {
         
         tableView.separatorStyle = .none
         
+      
+
+        
  //       todoItems = realm.objects(Items.self)
         
         loadItems()
         
-      
+    
             
         
 //
@@ -57,8 +60,47 @@ class TodoListViewController : SwipeTableViewController {
         
         // Do any additional setup after loading the view.
     }
+  
     
-    //MARK - TableView Data Source Methods
+    // viewWillAppear happens after viewDidLoad
+    override func viewWillAppear(_ animated: Bool) {
+        
+            guard let colourHex = selectedCategory?.color else {fatalError()}
+        
+            title = selectedCategory?.name
+                
+           updateNavBar(withHexCode: colourHex)
+            
+            // for search bar
+            searchBar.barTintColor = UIColor(hexString: colourHex)
+            searchBar.searchTextField.backgroundColor = FlatWhite()
+            
+        
+        
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+    
+       updateNavBar(withHexCode: "1D9BF6")
+    }
+    
+    //MARK: - Update Navigation Bar
+    
+    func updateNavBar(withHexCode colourHexCode:String) {
+                 guard let navBar = navigationController?.navigationBar else { fatalError("Navigation control does not exist")}
+                  // for navigation bar background colour
+                  navBar.barTintColor = UIColor(hexString: colourHexCode)
+                   
+                       //For back and plus button
+                   navBar.tintColor = ContrastColorOf(backgroundColor: UIColor(hexString: colourHexCode), returnFlat: true)
+                   //for title
+                   navBar.titleTextAttributes = [NSAttributedString.Key.foregroundColor : ContrastColorOf(backgroundColor: UIColor(hexString: colourHexCode), returnFlat: true)]
+        
+    }
+    
+    
+    
+    //MARK: - TableView Data Source Methods
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
        
@@ -67,6 +109,8 @@ class TodoListViewController : SwipeTableViewController {
         
         if let item  = todoItems?[indexPath.row] {
             cell.textLabel?.text = item.title
+            
+            
             
             if let colour = UIColor(hexString:selectedCategory?.color).darken(byPercentage: CGFloat(indexPath.row)/2 / CGFloat(todoItems!.count)) {
                  cell.backgroundColor = colour
